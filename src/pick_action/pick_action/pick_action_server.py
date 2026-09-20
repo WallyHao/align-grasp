@@ -19,99 +19,103 @@ from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, String
 
+try:
+    from ares_tool_interfaces.srv import ToolAction
+except ImportError:  # some workspaces still ship the service under this name
+    from r2_interfaces.srv import ToolAction
+
+from pick_action_interfaces.action import PickSequence
+
 from .pose_alignment import (
     correct_pose_from_odin,
     yaw_from_quaternion,
 )
-from pick_action_interfaces.action import PickSequence
-from r2_interfaces.srv import ToolAction
 
 
 class PickActionServer(Node):
     """Action server for a complete autonomous pick sequence."""
 
     def __init__(self) -> None:
-        super().__init__('pick_action_server')
+        super().__init__("pick_action_server")
 
-        self.declare_parameter('result_topic', '/spear_recognition/result')
-        self.declare_parameter('alignment_mode', 'lidar_recognition')
-        self.declare_parameter('tool_service', '/ares_tool_node/tool_action')
-        self.declare_parameter('chassis_topic', '/t0x0111_')
-        self.declare_parameter('lift_topic', '/t0x0112_')
-        self.declare_parameter('status_topic', '/pick_action/status')
+        self.declare_parameter("result_topic", "/spear_recognition/result")
+        self.declare_parameter("alignment_mode", "lidar_recognition")
+        self.declare_parameter("tool_service", "/ares_tool_node/tool_action")
+        self.declare_parameter("chassis_topic", "/t0x0111_")
+        self.declare_parameter("lift_topic", "/t0x0112_")
+        self.declare_parameter("status_topic", "/pick_action/status")
 
-        self.declare_parameter('sensor_topic', '/sensor_distances')
-        self.declare_parameter('pose_topic', '/odin1/relocation')
-        self.declare_parameter('sensor_count', 8)
-        self.declare_parameter('sensor_3_index', 3)
-        self.declare_parameter('sensor_5_index', 5)
-        self.declare_parameter('sensor_max_age_s', 0.5)
-        self.declare_parameter('pose_max_age_s', 0.5)
+        self.declare_parameter("sensor_topic", "/sensor_distances")
+        self.declare_parameter("pose_topic", "/odin1/relocation")
+        self.declare_parameter("sensor_count", 8)
+        self.declare_parameter("sensor_3_index", 3)
+        self.declare_parameter("sensor_5_index", 5)
+        self.declare_parameter("sensor_max_age_s", 0.5)
+        self.declare_parameter("pose_max_age_s", 0.5)
 
-        self.declare_parameter('field_origin_x_m', 0.0)
-        self.declare_parameter('field_origin_y_m', 0.0)
-        self.declare_parameter('gripper_forward_m', 0.0)
-        self.declare_parameter('gripper_left_m', 0.0)
-        self.declare_parameter('gripper_yaw_offset_rad', 0.0)
-        self.declare_parameter('target_x_m', 1.05)
-        self.declare_parameter('target_y_m', -0.15)
-        self.declare_parameter('gripper_move_direct', -1.0)
+        self.declare_parameter("field_origin_x_m", 0.0)
+        self.declare_parameter("field_origin_y_m", 0.0)
+        self.declare_parameter("gripper_forward_m", 0.0)
+        self.declare_parameter("gripper_left_m", 0.0)
+        self.declare_parameter("gripper_yaw_offset_rad", 0.0)
+        self.declare_parameter("target_x_m", 1.05)
+        self.declare_parameter("target_y_m", -0.15)
+        self.declare_parameter("gripper_move_direct", -1.0)
 
-        self.declare_parameter('prepare_base_length_m', 0.3)
-        self.declare_parameter('prepare_min_length_m', 0.0)
-        self.declare_parameter('prepare_max_length_m', 0.5)
-        self.declare_parameter('direction_sign_x', -1.0)
-        self.declare_parameter('deadband_x_m', 0.005)
-        self.declare_parameter('prepare_timeout_ms', 20000)
+        self.declare_parameter("prepare_base_length_m", 0.3)
+        self.declare_parameter("prepare_min_length_m", 0.0)
+        self.declare_parameter("prepare_max_length_m", 0.5)
+        self.declare_parameter("direction_sign_x", -1.0)
+        self.declare_parameter("deadband_x_m", 0.005)
+        self.declare_parameter("prepare_timeout_ms", 20000)
 
-        self.declare_parameter('scan_sensor_index', 1)
-        self.declare_parameter('scan_sensor_max_age_s', 0.5)
-        self.declare_parameter('scan_enable_jump_trigger', False)
-        self.declare_parameter('scan_jump_threshold_mm', 80.0)
-        self.declare_parameter('scan_present_threshold_mm', 250.0)
-        self.declare_parameter('scan_present_duration_s', 0.2)
-        self.declare_parameter('debug_scan_target_position_m', 0.5)
-        self.declare_parameter('scan_prepare_length_m', 0.05)
-        self.declare_parameter('scan_prepare_speed_rpm', 30.0)
-        self.declare_parameter('scan_center_extra_time_s', 0.25)
-        self.declare_parameter('scan_timeout_s', 5.0)
-        self.declare_parameter('scan_sample_period_s', 0.02)
-        self.declare_parameter('scan_stop_action', 'prepare')
-        self.declare_parameter('scan_stop_args', [0.0, 0.0])
-        self.declare_parameter('scan_stop_timeout_ms', 3000)
-        self.declare_parameter('scan_stop_to_grasp_delay_s', 0.2)
+        self.declare_parameter("scan_sensor_index", 1)
+        self.declare_parameter("scan_sensor_max_age_s", 0.5)
+        self.declare_parameter("scan_enable_jump_trigger", False)
+        self.declare_parameter("scan_jump_threshold_mm", 80.0)
+        self.declare_parameter("scan_present_threshold_mm", 250.0)
+        self.declare_parameter("scan_present_duration_s", 0.2)
+        self.declare_parameter("debug_scan_target_position_m", 0.5)
+        self.declare_parameter("scan_prepare_length_m", 0.05)
+        self.declare_parameter("scan_prepare_speed_rpm", 30.0)
+        self.declare_parameter("scan_center_extra_time_s", 0.25)
+        self.declare_parameter("scan_timeout_s", 5.0)
+        self.declare_parameter("scan_sample_period_s", 0.02)
+        self.declare_parameter("scan_stop_action", "prepare")
+        self.declare_parameter("scan_stop_args", [0.0, 0.0])
+        self.declare_parameter("scan_stop_timeout_ms", 3000)
+        self.declare_parameter("scan_stop_to_grasp_delay_s", 0.2)
         self.declare_parameter(
-            'scan_debug_log_path',
-            '/tmp/pick_action_sensor_scan_debug.jsonl',
+            "scan_debug_log_path",
+            "/tmp/pick_action_sensor_scan_debug.jsonl",
         )
-        self.declare_parameter('tool_debug_log_enabled', True)
+        self.declare_parameter("tool_debug_log_enabled", True)
         self.declare_parameter(
-            'tool_debug_log_path',
-            'pick_action_tool_debug.jsonl',
+            "tool_debug_log_path",
+            "pick_action_tool_debug.jsonl",
         )
 
-        self.declare_parameter('forward_speed_mps', 0.2)
-        self.declare_parameter('forward_duration_s', 2.0)
-        self.declare_parameter('direction_sign_y', -1.0)
+        self.declare_parameter("forward_speed_mps", 0.2)
+        self.declare_parameter("forward_duration_s", 2.0)
+        self.declare_parameter("direction_sign_y", -1.0)
 
-        self.declare_parameter('grasp_timeout_ms', 15000)
-        self.declare_parameter('grasp_retry_delay_s', 0.1)
+        self.declare_parameter("grasp_timeout_ms", 15000)
+        self.declare_parameter("grasp_retry_delay_s", 0.1)
 
-        self.declare_parameter('lift_height_mm', [70.0, 70.0, 70.0, 70.0])
-        self.declare_parameter('lower_height_mm', [20.0, 20.0, 20.0, 20.0])
-        self.declare_parameter('height_command_frames', 10)
+        self.declare_parameter("lift_height_mm", [70.0, 70.0, 70.0, 70.0])
+        self.declare_parameter("lower_height_mm", [20.0, 20.0, 20.0, 20.0])
+        self.declare_parameter("height_command_frames", 10)
 
-        self.declare_parameter('retreat_speed_mps', 0.2)
-        self.declare_parameter('retreat_duration_s', 2.0)
+        self.declare_parameter("retreat_speed_mps", 0.2)
+        self.declare_parameter("retreat_duration_s", 2.0)
 
-        self.declare_parameter('publish_rate_hz', 100.0)
-        self.declare_parameter('alignment_data_path', '/tmp/alignment_result.json')
+        self.declare_parameter("publish_rate_hz", 100.0)
+        self.declare_parameter("alignment_data_path", "/tmp/alignment_result.json")
 
         self._latest_recognition: dict | None = None
         self._recognition_lock = threading.Lock()
         self._latest_distances = [
-            math.nan
-            for _ in range(int(self.get_parameter('sensor_count').value))
+            math.nan for _ in range(int(self.get_parameter("sensor_count").value))
         ]
         self._latest_sensor_receive_time_s = math.nan
         self._latest_pose: PoseStamped | None = None
@@ -126,34 +130,34 @@ class PickActionServer(Node):
 
         self._chassis_pub = self.create_publisher(
             Float32MultiArray,
-            self.get_parameter('chassis_topic').value,
+            self.get_parameter("chassis_topic").value,
             10,
         )
         self._lift_pub = self.create_publisher(
             Float32MultiArray,
-            self.get_parameter('lift_topic').value,
+            self.get_parameter("lift_topic").value,
             10,
         )
         self._status_pub = self.create_publisher(
             String,
-            self.get_parameter('status_topic').value,
+            self.get_parameter("status_topic").value,
             10,
         )
         self._subscription = self.create_subscription(
             String,
-            self.get_parameter('result_topic').value,
+            self.get_parameter("result_topic").value,
             self._recognition_callback,
             10,
         )
         self._sensor_subscription = self.create_subscription(
             Float32MultiArray,
-            self.get_parameter('sensor_topic').value,
+            self.get_parameter("sensor_topic").value,
             self._sensor_callback,
             10,
         )
         self._pose_subscription = self.create_subscription(
             PoseStamped,
-            self.get_parameter('pose_topic').value,
+            self.get_parameter("pose_topic").value,
             self._pose_callback,
             10,
         )
@@ -161,7 +165,7 @@ class PickActionServer(Node):
         self._action_server = ActionServer(
             self,
             PickSequence,
-            'pick_action',
+            "pick_action",
             execute_callback=self._execute_callback,
             goal_callback=self._goal_callback,
             cancel_callback=self._cancel_callback,
@@ -172,22 +176,20 @@ class PickActionServer(Node):
         self._init_tool_client()
 
         self.get_logger().info(
-            'Pick action server ready; alignment_mode=%s'
-            % self.get_parameter('alignment_mode').value
+            "Pick action server ready; alignment_mode=%s"
+            % self.get_parameter("alignment_mode").value
         )
 
     def _init_tool_client(self) -> None:
         try:
             self._tool_client = self.create_client(
                 ToolAction,
-                self.get_parameter('tool_service').value,
+                self.get_parameter("tool_service").value,
                 callback_group=self._callback_group,
             )
-            self.get_logger().info('ToolAction client created')
+            self.get_logger().info("ToolAction client created")
         except Exception as exc:
-            self.get_logger().warn(
-                'ToolAction service not available (%s); tool disabled' % exc
-            )
+            self.get_logger().warn("ToolAction service not available (%s); tool disabled" % exc)
 
     def _ensure_tool_available(self) -> bool:
         if self._tool_client is None:
@@ -203,7 +205,7 @@ class PickActionServer(Node):
             pass
 
     def _sensor_callback(self, msg: Float32MultiArray) -> None:
-        sensor_count = int(self.get_parameter('sensor_count').value)
+        sensor_count = int(self.get_parameter("sensor_count").value)
         distances = [math.nan] * sensor_count
         for index in range(min(sensor_count, len(msg.data))):
             distances[index] = float(msg.data[index])
@@ -220,36 +222,36 @@ class PickActionServer(Node):
         return self.get_clock().now().nanoseconds * 1e-9
 
     def _uses_odin_sensor_projection(self) -> bool:
-        mode = str(self.get_parameter('alignment_mode').value)
+        mode = str(self.get_parameter("alignment_mode").value)
         return mode.lower() in (
-            'odin_sensor_projection',
-            'odin_sensor',
-            'projection',
+            "odin_sensor_projection",
+            "odin_sensor",
+            "projection",
         )
 
     def _uses_no_alignment(self) -> bool:
-        mode = str(self.get_parameter('alignment_mode').value)
+        mode = str(self.get_parameter("alignment_mode").value)
         return mode.lower() in (
-            'no_alignment',
-            'none',
-            'direct',
+            "no_alignment",
+            "none",
+            "direct",
         )
 
     def _uses_sensor_scan_no_alignment(self) -> bool:
-        mode = str(self.get_parameter('alignment_mode').value)
+        mode = str(self.get_parameter("alignment_mode").value)
         return mode.lower() in (
-            'sensor_scan_no_alignment',
-            'sensor_scan',
-            'scan_no_alignment',
-            'scan_direct',
+            "sensor_scan_no_alignment",
+            "sensor_scan",
+            "scan_no_alignment",
+            "scan_direct",
         )
 
     def _goal_callback(self, goal_request: PickSequence.Goal) -> GoalResponse:
-        self.get_logger().info('Received goal: expected_count=%d' % goal_request.expected_count)
+        self.get_logger().info("Received goal: expected_count=%d" % goal_request.expected_count)
         return GoalResponse.ACCEPT
 
     def _cancel_callback(self, goal_handle) -> CancelResponse:
-        self.get_logger().info('Cancel requested')
+        self.get_logger().info("Cancel requested")
         return CancelResponse.ACCEPT
 
     def _wait_for_recognition(self, expected_count: int, timeout_s: float) -> bool:
@@ -258,9 +260,9 @@ class PickActionServer(Node):
             with self._recognition_lock:
                 data = self._latest_recognition
             if data is not None:
-                status = data.get('status', '')
-                count = data.get('recognized_count', 0)
-                if status == 'recognized' and count == expected_count:
+                status = data.get("status", "")
+                count = data.get("recognized_count", 0)
+                if status == "recognized" and count == expected_count:
                     return True
             time.sleep(0.05)
         return False
@@ -271,13 +273,13 @@ class PickActionServer(Node):
 
     def _pick_best_target(self) -> tuple[int, float, float]:
         with self._recognition_lock:
-            targets = list(self._latest_recognition.get('targets', []))
+            targets = list(self._latest_recognition.get("targets", []))
         if not targets:
             return -1, 0.0, 0.0
-        best = min(targets, key=lambda t: abs(float(t.get('x_m', 0.0))))
-        tid = int(best.get('id', -1))
-        x_m = float(best['x_m'])
-        y_m = float(best['y_m'])
+        best = min(targets, key=lambda t: abs(float(t.get("x_m", 0.0))))
+        tid = int(best.get("id", -1))
+        x_m = float(best["x_m"])
+        y_m = float(best["y_m"])
         return tid, x_m, y_m
 
     def _compute_odin_sensor_alignment(self) -> dict | None:
@@ -294,20 +296,20 @@ class PickActionServer(Node):
         pose_age_s = now_s - pose_receive_time_s
         if (
             not math.isfinite(sensor_age_s)
-            or sensor_age_s > float(self.get_parameter('sensor_max_age_s').value)
-            or pose_age_s > float(self.get_parameter('pose_max_age_s').value)
+            or sensor_age_s > float(self.get_parameter("sensor_max_age_s").value)
+            or pose_age_s > float(self.get_parameter("pose_max_age_s").value)
         ):
             return None
 
-        sensor_3_index = int(self.get_parameter('sensor_3_index').value)
-        sensor_5_index = int(self.get_parameter('sensor_5_index').value)
+        sensor_3_index = int(self.get_parameter("sensor_3_index").value)
+        sensor_5_index = int(self.get_parameter("sensor_5_index").value)
         if (
             sensor_3_index >= len(distances)
             or sensor_5_index >= len(distances)
             or sensor_3_index < 0
             or sensor_5_index < 0
         ):
-            self.get_logger().error('Configured sensor index is out of range')
+            self.get_logger().error("Configured sensor index is out of range")
             return None
 
         sensor_3_mm = distances[sensor_3_index]
@@ -323,36 +325,36 @@ class PickActionServer(Node):
             float(position.x),
             float(position.y),
             yaw_rad,
-            float(self.get_parameter('field_origin_x_m').value),
-            float(self.get_parameter('field_origin_y_m').value),
-            float(self.get_parameter('gripper_forward_m').value),
-            float(self.get_parameter('gripper_left_m').value),
-            float(self.get_parameter('gripper_yaw_offset_rad').value),
-            float(self.get_parameter('target_x_m').value),
-            float(self.get_parameter('target_y_m').value),
-            float(self.get_parameter('gripper_move_direct').value),
+            float(self.get_parameter("field_origin_x_m").value),
+            float(self.get_parameter("field_origin_y_m").value),
+            float(self.get_parameter("gripper_forward_m").value),
+            float(self.get_parameter("gripper_left_m").value),
+            float(self.get_parameter("gripper_yaw_offset_rad").value),
+            float(self.get_parameter("target_x_m").value),
+            float(self.get_parameter("target_y_m").value),
+            float(self.get_parameter("gripper_move_direct").value),
         )
         return {
-            'target_id': 0,
-            'target_x_m': corrected['target_x_m'],
-            'target_y_m': corrected['target_y_m'],
-            'sensor_3_mm': sensor_3_mm,
-            'sensor_5_mm': sensor_5_mm,
-            'sensor_age_s': sensor_age_s,
-            'pose_age_s': pose_age_s,
-            'odin_x_m': float(position.x),
-            'odin_y_m': float(position.y),
-            'odin_yaw_rad': yaw_rad,
-            'corrected': corrected,
-            'gripper_x_m': corrected['corrected_gripper_x_m'],
-            'gripper_y_m': corrected['corrected_gripper_y_m'],
-            'gripper_yaw_rad': corrected['corrected_gripper_yaw_rad'],
-            'projection_x_m': corrected['target_projection_x_m'],
-            'projection_y_m': corrected['target_projection_y_m'],
-            'raw_along_offset_m': corrected['raw_gripper_forward_move_m'],
-            'along_offset_m': corrected['gripper_forward_move_m'],
-            'direct': corrected['direct'],
-            'lateral_error_m': corrected['gripper_lateral_error_m'],
+            "target_id": 0,
+            "target_x_m": corrected["target_x_m"],
+            "target_y_m": corrected["target_y_m"],
+            "sensor_3_mm": sensor_3_mm,
+            "sensor_5_mm": sensor_5_mm,
+            "sensor_age_s": sensor_age_s,
+            "pose_age_s": pose_age_s,
+            "odin_x_m": float(position.x),
+            "odin_y_m": float(position.y),
+            "odin_yaw_rad": yaw_rad,
+            "corrected": corrected,
+            "gripper_x_m": corrected["corrected_gripper_x_m"],
+            "gripper_y_m": corrected["corrected_gripper_y_m"],
+            "gripper_yaw_rad": corrected["corrected_gripper_yaw_rad"],
+            "projection_x_m": corrected["target_projection_x_m"],
+            "projection_y_m": corrected["target_projection_y_m"],
+            "raw_along_offset_m": corrected["raw_gripper_forward_move_m"],
+            "along_offset_m": corrected["gripper_forward_move_m"],
+            "direct": corrected["direct"],
+            "lateral_error_m": corrected["gripper_lateral_error_m"],
         }
 
     def _wait_for_odin_sensor_alignment(self, timeout_s: float) -> dict | None:
@@ -364,23 +366,22 @@ class PickActionServer(Node):
             time.sleep(0.05)
         return None
 
-    def _call_tool_action(self, action: str, args: list[float],
-                          timeout_ms: float) -> bool:
+    def _call_tool_action(self, action: str, args: list[float], timeout_ms: float) -> bool:
         if not self._ensure_tool_available():
             detail = (
-                'Tool service unavailable: service=%s wait_timeout=3.0s'
-                % self.get_parameter('tool_service').value
+                "Tool service unavailable: service=%s wait_timeout=3.0s"
+                % self.get_parameter("tool_service").value
             )
             self.get_logger().error(detail)
             self._record_tool_call(
-                'tool_unavailable',
+                "tool_unavailable",
                 action=action,
                 args=args,
                 success=False,
                 detail=detail,
             )
             self._write_scan_debug_log(
-                'tool_unavailable',
+                "tool_unavailable",
                 action=action,
                 args=args,
             )
@@ -392,13 +393,13 @@ class PickActionServer(Node):
 
         timeout_s = timeout_ms / 1000.0
         self._record_tool_call(
-            'tool_call_start',
+            "tool_call_start",
             action=action,
             args=list(req.args),
             timeout_s=timeout_s,
         )
         self._write_scan_debug_log(
-            'tool_call_start',
+            "tool_call_start",
             action=action,
             args=list(req.args),
             timeout_s=timeout_s,
@@ -412,10 +413,10 @@ class PickActionServer(Node):
             try:
                 r = future.result()
             except Exception as exc:
-                detail = 'Tool %s raised exception: %s' % (action, exc)
+                detail = "Tool %s raised exception: %s" % (action, exc)
                 self.get_logger().error(detail)
                 self._record_tool_call(
-                    'tool_call_exception',
+                    "tool_call_exception",
                     action=action,
                     args=list(req.args),
                     success=False,
@@ -424,16 +425,16 @@ class PickActionServer(Node):
                     timeout_s=timeout_s,
                 )
                 self._write_scan_debug_log(
-                    'tool_call_exception',
+                    "tool_call_exception",
                     action=action,
                     error=str(exc),
                 )
                 return False
             if r is None:
-                detail = 'Tool %s returned no result' % action
+                detail = "Tool %s returned no result" % action
                 self.get_logger().error(detail)
                 self._record_tool_call(
-                    'tool_call_no_result',
+                    "tool_call_no_result",
                     action=action,
                     args=list(req.args),
                     success=False,
@@ -441,7 +442,7 @@ class PickActionServer(Node):
                     timeout_s=timeout_s,
                 )
                 self._write_scan_debug_log(
-                    'tool_call_no_result',
+                    "tool_call_no_result",
                     action=action,
                 )
                 return False
@@ -450,33 +451,36 @@ class PickActionServer(Node):
                 str(r.message),
             )
             self._write_scan_debug_log(
-                'tool_call_result',
+                "tool_call_result",
                 action=action,
                 success=bool(r.success),
                 ret=int(r.ret),
                 message=str(r.message),
             )
             if r.success:
-                self.get_logger().info('Tool %s completed' % action)
+                self.get_logger().info("Tool %s completed" % action)
                 self._record_tool_call(
-                    'tool_call_result',
+                    "tool_call_result",
                     action=action,
                     args=list(req.args),
                     success=True,
-                    detail='Tool %s completed' % action,
+                    detail="Tool %s completed" % action,
                     ret=int(r.ret),
                     message=str(r.message),
                     timeout_s=timeout_s,
                     timed_out=response_timed_out,
                 )
                 return True
-            detail = (
-                'Tool %s failed: ret=%d msg="%s" timeout=%.3fs args=%s'
-                % (action, r.ret, r.message, timeout_s, list(req.args))
+            detail = 'Tool %s failed: ret=%d msg="%s" timeout=%.3fs args=%s' % (
+                action,
+                r.ret,
+                r.message,
+                timeout_s,
+                list(req.args),
             )
             self.get_logger().warn(detail)
             self._record_tool_call(
-                'tool_call_result',
+                "tool_call_result",
                 action=action,
                 args=list(req.args),
                 success=False,
@@ -487,13 +491,14 @@ class PickActionServer(Node):
                 timed_out=response_timed_out,
             )
             return False
-        detail = (
-            'Tool %s timed out after %.3fs waiting for response; args=%s'
-            % (action, timeout_s, list(req.args))
+        detail = "Tool %s timed out after %.3fs waiting for response; args=%s" % (
+            action,
+            timeout_s,
+            list(req.args),
         )
         self.get_logger().error(detail)
         self._record_tool_call(
-            'tool_call_timeout',
+            "tool_call_timeout",
             action=action,
             args=list(req.args),
             success=False,
@@ -502,7 +507,7 @@ class PickActionServer(Node):
             timed_out=True,
         )
         self._write_scan_debug_log(
-            'tool_call_timeout',
+            "tool_call_timeout",
             action=action,
             timeout_s=timeout_s,
         )
@@ -512,95 +517,90 @@ class PickActionServer(Node):
         text = message.lower()
         return (
             ret == -errno.ETIMEDOUT
-            or 'timeout' in text
-            or 'timed out' in text
-            or 'time out' in text
-            or '超时' in message
+            or "timeout" in text
+            or "timed out" in text
+            or "time out" in text
+            or "超时" in message
         )
 
     def _record_tool_call(self, event: str, **fields) -> None:
-        if not bool(self.get_parameter('tool_debug_log_enabled').value):
-            self._last_tool_call = {'event': event, **fields}
+        if not bool(self.get_parameter("tool_debug_log_enabled").value):
+            self._last_tool_call = {"event": event, **fields}
             return
 
         record = {
-            'stamp_s': self._json_safe(self._now_sec()),
-            'monotonic_s': self._json_safe(time.monotonic()),
-            'event': event,
+            "stamp_s": self._json_safe(self._now_sec()),
+            "monotonic_s": self._json_safe(time.monotonic()),
+            "event": event,
         }
-        record.update({
-            key: self._json_safe(value)
-            for key, value in fields.items()
-        })
+        record.update({key: self._json_safe(value) for key, value in fields.items()})
         self._last_tool_call = record
 
-        path = str(self.get_parameter('tool_debug_log_path').value)
+        path = str(self.get_parameter("tool_debug_log_path").value)
         if not path:
             return
         try:
-            os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-            with open(path, 'a', encoding='utf-8') as handle:
-                handle.write(json.dumps(record, ensure_ascii=False) + '\n')
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
         except OSError as exc:
-            self.get_logger().warn(
-                'Failed to write tool debug log %s: %s' % (path, exc)
-            )
+            self.get_logger().warn("Failed to write tool debug log %s: %s" % (path, exc))
 
     def _last_tool_timed_out(self, action: str) -> bool:
         return bool(
             self._last_tool_call
-            and self._last_tool_call.get('action') == action
-            and self._last_tool_call.get('timed_out')
+            and self._last_tool_call.get("action") == action
+            and self._last_tool_call.get("timed_out")
         )
 
     def _last_tool_detail(self, action: str) -> str:
         if not self._last_tool_call:
-            return ''
-        if self._last_tool_call.get('action') != action:
-            return ''
-        return str(self._last_tool_call.get('detail', ''))
+            return ""
+        if self._last_tool_call.get("action") != action:
+            return ""
+        return str(self._last_tool_call.get("detail", ""))
 
     def _call_grasp_with_optional_retry(
         self,
         timeout_ms: float,
         retry_on_timeout: bool,
     ) -> bool:
-        first = self._call_tool_action('grasp', [0.0], timeout_ms)
+        first = self._call_tool_action("grasp", [0.0], timeout_ms)
         if first:
             return first
-        first_detail = self._last_tool_detail('grasp')
-        if not retry_on_timeout or not self._last_tool_timed_out('grasp'):
+        first_detail = self._last_tool_detail("grasp")
+        if not retry_on_timeout or not self._last_tool_timed_out("grasp"):
             return first
 
-        retry_delay_s = float(self.get_parameter('grasp_retry_delay_s').value)
+        retry_delay_s = float(self.get_parameter("grasp_retry_delay_s").value)
         self.get_logger().warn(
-            'Grasp timed out; retrying once after %.3f s. First failure: %s'
+            "Grasp timed out; retrying once after %.3f s. First failure: %s"
             % (retry_delay_s, first_detail)
         )
         self._record_tool_call(
-            'grasp_retry_after_timeout',
-            action='grasp',
+            "grasp_retry_after_timeout",
+            action="grasp",
             retry_delay_s=retry_delay_s,
             first_failure=first_detail,
         )
         self._write_scan_debug_log(
-            'grasp_retry_after_timeout',
+            "grasp_retry_after_timeout",
             retry_delay_s=retry_delay_s,
             first_failure=first_detail,
         )
         time.sleep(retry_delay_s)
 
-        second = self._call_tool_action('grasp', [0.0], timeout_ms)
+        second = self._call_tool_action("grasp", [0.0], timeout_ms)
         if second:
             return second
 
-        second_detail = self._last_tool_detail('grasp')
+        second_detail = self._last_tool_detail("grasp")
         self._record_tool_call(
-            'grasp_retry_failed',
-            action='grasp',
+            "grasp_retry_failed",
+            action="grasp",
             success=False,
             detail='grasp failed after one retry; first="%s"; second="%s"'
-                   % (first_detail, second_detail),
+            % (first_detail, second_detail),
             first_failure=first_detail,
             second_failure=second_detail,
         )
@@ -609,12 +609,12 @@ class PickActionServer(Node):
     def _start_tool_action_async(self, action: str, args: list[float]):
         if not self._ensure_tool_available():
             detail = (
-                'Tool service unavailable: service=%s wait_timeout=3.0s'
-                % self.get_parameter('tool_service').value
+                "Tool service unavailable: service=%s wait_timeout=3.0s"
+                % self.get_parameter("tool_service").value
             )
             self.get_logger().error(detail)
             self._record_tool_call(
-                'tool_unavailable',
+                "tool_unavailable",
                 action=action,
                 args=args,
                 success=False,
@@ -622,7 +622,7 @@ class PickActionServer(Node):
                 async_call=True,
             )
             self._write_scan_debug_log(
-                'tool_unavailable',
+                "tool_unavailable",
                 action=action,
                 args=args,
                 async_call=True,
@@ -632,17 +632,15 @@ class PickActionServer(Node):
         req = ToolAction.Request()
         req.action = action
         req.args = args[:4] + [0.0] * max(0, 4 - len(args))
-        self.get_logger().info(
-            'Starting tool %s asynchronously: args=%s' % (action, req.args)
-        )
+        self.get_logger().info("Starting tool %s asynchronously: args=%s" % (action, req.args))
         self._record_tool_call(
-            'tool_async_start',
+            "tool_async_start",
             action=action,
             args=list(req.args),
             async_call=True,
         )
         self._write_scan_debug_log(
-            'tool_async_start',
+            "tool_async_start",
             action=action,
             args=list(req.args),
         )
@@ -654,7 +652,7 @@ class PickActionServer(Node):
             distances = list(self._latest_distances)
             receive_time_s = self._latest_sensor_receive_time_s
 
-        index = int(self.get_parameter('scan_sensor_index').value)
+        index = int(self.get_parameter("scan_sensor_index").value)
         if index < 0 or index >= len(distances):
             return math.nan, math.inf
 
@@ -667,19 +665,15 @@ class PickActionServer(Node):
         return (
             math.isfinite(distance_mm)
             and math.isfinite(age_s)
-            and age_s <= float(self.get_parameter('scan_sensor_max_age_s').value)
+            and age_s <= float(self.get_parameter("scan_sensor_max_age_s").value)
         )
 
     def _stop_scan_motion(self) -> bool:
-        stop_action = str(self.get_parameter('scan_stop_action').value)
-        stop_args = [
-            float(value)
-            for value in self.get_parameter('scan_stop_args').value
-        ]
-        stop_timeout = float(self.get_parameter('scan_stop_timeout_ms').value)
+        stop_action = str(self.get_parameter("scan_stop_action").value)
+        stop_args = [float(value) for value in self.get_parameter("scan_stop_args").value]
+        stop_timeout = float(self.get_parameter("scan_stop_timeout_ms").value)
         self.get_logger().info(
-            'Stopping sensor scan with tool %s args=%s'
-            % (stop_action, stop_args)
+            "Stopping sensor scan with tool %s args=%s" % (stop_action, stop_args)
         )
         return self._call_tool_action(stop_action, stop_args, stop_timeout)
 
@@ -693,60 +687,42 @@ class PickActionServer(Node):
         if isinstance(value, tuple):
             return [self._json_safe(item) for item in value]
         if isinstance(value, dict):
-            return {
-                str(key): self._json_safe(item)
-                for key, item in value.items()
-            }
+            return {str(key): self._json_safe(item) for key, item in value.items()}
         return str(value)
 
     def _write_scan_debug_log(self, event: str, **fields) -> None:
-        path = str(self.get_parameter('scan_debug_log_path').value)
+        path = str(self.get_parameter("scan_debug_log_path").value)
         if not path:
             return
         record = {
-            'stamp_s': self._json_safe(self._now_sec()),
-            'monotonic_s': self._json_safe(time.monotonic()),
-            'event': event,
+            "stamp_s": self._json_safe(self._now_sec()),
+            "monotonic_s": self._json_safe(time.monotonic()),
+            "event": event,
         }
         if self._active_scan_debug_id is not None:
-            record['scan_id'] = self._active_scan_debug_id
-        record.update({
-            key: self._json_safe(value)
-            for key, value in fields.items()
-        })
+            record["scan_id"] = self._active_scan_debug_id
+        record.update({key: self._json_safe(value) for key, value in fields.items()})
         try:
-            os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-            with open(path, 'a', encoding='utf-8') as handle:
-                handle.write(json.dumps(record, ensure_ascii=False) + '\n')
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
         except OSError as exc:
-            self.get_logger().warn(
-                'Failed to write sensor scan debug log %s: %s' % (path, exc)
-            )
+            self.get_logger().warn("Failed to write sensor scan debug log %s: %s" % (path, exc))
 
     def _run_sensor_scan(self, goal_handle) -> dict | None:
-        scan_target_position_m = float(
-            self.get_parameter('debug_scan_target_position_m').value
-        )
-        scan_speed_rpm = float(self.get_parameter('scan_prepare_speed_rpm').value)
-        present_threshold_mm = float(
-            self.get_parameter('scan_present_threshold_mm').value
-        )
-        present_duration_s = float(
-            self.get_parameter('scan_present_duration_s').value
-        )
-        enable_jump_trigger = bool(
-            self.get_parameter('scan_enable_jump_trigger').value
-        )
-        jump_threshold_mm = float(
-            self.get_parameter('scan_jump_threshold_mm').value
-        )
-        timeout_s = float(self.get_parameter('scan_timeout_s').value)
-        sample_period_s = float(self.get_parameter('scan_sample_period_s').value)
-        sensor_index = int(self.get_parameter('scan_sensor_index').value)
+        scan_target_position_m = float(self.get_parameter("debug_scan_target_position_m").value)
+        scan_speed_rpm = float(self.get_parameter("scan_prepare_speed_rpm").value)
+        present_threshold_mm = float(self.get_parameter("scan_present_threshold_mm").value)
+        present_duration_s = float(self.get_parameter("scan_present_duration_s").value)
+        enable_jump_trigger = bool(self.get_parameter("scan_enable_jump_trigger").value)
+        jump_threshold_mm = float(self.get_parameter("scan_jump_threshold_mm").value)
+        timeout_s = float(self.get_parameter("scan_timeout_s").value)
+        sample_period_s = float(self.get_parameter("scan_sample_period_s").value)
+        sensor_index = int(self.get_parameter("scan_sensor_index").value)
 
-        self._active_scan_debug_id = 'scan-%.6f' % time.time()
+        self._active_scan_debug_id = "scan-%.6f" % time.time()
         self._write_scan_debug_log(
-            'scan_start',
+            "scan_start",
             sensor_index=sensor_index,
             scan_target_position_m=scan_target_position_m,
             scan_speed_rpm=scan_speed_rpm,
@@ -758,15 +734,14 @@ class PickActionServer(Node):
             sample_period_s=sample_period_s,
         )
         self.get_logger().info(
-            'Sensor scan target: prepare([%.4f, %.4f])'
-            % (scan_target_position_m, scan_speed_rpm)
+            "Sensor scan target: prepare([%.4f, %.4f])" % (scan_target_position_m, scan_speed_rpm)
         )
         future = self._start_tool_action_async(
-            'prepare',
+            "prepare",
             [scan_target_position_m, scan_speed_rpm],
         )
         if future is None:
-            self._write_scan_debug_log('scan_target_start_failed')
+            self._write_scan_debug_log("scan_target_start_failed")
             self._active_scan_debug_id = None
             return None
 
@@ -776,20 +751,20 @@ class PickActionServer(Node):
         previous_age_s = math.inf
         sample_count = 0
         stopped = False
-        stop_detail = ''
+        stop_detail = ""
         scan_result = None
 
         try:
             while time.monotonic() - start_s < timeout_s:
                 if goal_handle.is_cancel_requested:
-                    self.get_logger().info('Cancelled during sensor scan')
-                    self._write_scan_debug_log('scan_cancelled')
+                    self.get_logger().info("Cancelled during sensor scan")
+                    self._write_scan_debug_log("scan_cancelled")
                     return None
 
                 current_mm, age_s = self._get_scan_sensor_distance_mm()
                 if not self._is_valid_scan_distance(current_mm, age_s):
                     self._write_scan_debug_log(
-                        'scan_sample_invalid',
+                        "scan_sample_invalid",
                         sensor_index=sensor_index,
                         distance_mm=current_mm,
                         age_s=age_s,
@@ -808,8 +783,8 @@ class PickActionServer(Node):
                     if present_elapsed_s >= present_duration_s:
                         scan_elapsed_s = now_monotonic_s - start_s
                         self.get_logger().info(
-                            'Sensor scan object-present trigger: sensor[%d] '
-                            'distance=%.1f mm <= %.1f mm for %.3f s'
+                            "Sensor scan object-present trigger: sensor[%d] "
+                            "distance=%.1f mm <= %.1f mm for %.3f s"
                             % (
                                 sensor_index,
                                 current_mm,
@@ -819,11 +794,11 @@ class PickActionServer(Node):
                         )
                         stopped = self._stop_scan_motion()
                         stop_detail = self._last_tool_detail(
-                            str(self.get_parameter('scan_stop_action').value)
+                            str(self.get_parameter("scan_stop_action").value)
                         )
                         self._write_scan_debug_log(
-                            'scan_trigger',
-                            trigger='object_present',
+                            "scan_trigger",
+                            trigger="object_present",
                             sensor_index=sensor_index,
                             distance_mm=current_mm,
                             age_s=age_s,
@@ -834,39 +809,32 @@ class PickActionServer(Node):
                             stop_detail=stop_detail,
                         )
                         scan_result = {
-                            'alignment_mode': 'sensor_scan_no_alignment',
-                            'scan_trigger': 'object_present',
-                            'scan_sensor_index': sensor_index,
-                            'scan_target_position_m': round(
-                                scan_target_position_m, 4
-                            ),
-                            'scan_current_mm': round(current_mm, 3),
-                            'scan_present_threshold_mm': round(
-                                present_threshold_mm, 3
-                            ),
-                            'scan_present_duration_s': round(
-                                present_duration_s, 3
-                            ),
-                            'scan_present_elapsed_s': round(present_elapsed_s, 3),
-                            'scan_elapsed_s': round(scan_elapsed_s, 3),
-                            'scan_sample_count': sample_count,
-                            'scan_stop_success': stopped,
-                            'scan_stop_detail': stop_detail,
+                            "alignment_mode": "sensor_scan_no_alignment",
+                            "scan_trigger": "object_present",
+                            "scan_sensor_index": sensor_index,
+                            "scan_target_position_m": round(scan_target_position_m, 4),
+                            "scan_current_mm": round(current_mm, 3),
+                            "scan_present_threshold_mm": round(present_threshold_mm, 3),
+                            "scan_present_duration_s": round(present_duration_s, 3),
+                            "scan_present_elapsed_s": round(present_elapsed_s, 3),
+                            "scan_elapsed_s": round(scan_elapsed_s, 3),
+                            "scan_sample_count": sample_count,
+                            "scan_stop_success": stopped,
+                            "scan_stop_detail": stop_detail,
                         }
                         return scan_result
                 else:
                     present_start_s = math.nan
 
-                if (
-                    enable_jump_trigger
-                    and self._is_valid_scan_distance(previous_mm, previous_age_s)
+                if enable_jump_trigger and self._is_valid_scan_distance(
+                    previous_mm, previous_age_s
                 ):
                     delta_mm = current_mm - previous_mm
                     if abs(delta_mm) >= jump_threshold_mm:
                         scan_elapsed_s = now_monotonic_s - start_s
                         self.get_logger().info(
-                            'Sensor scan jump trigger: sensor[%d] previous=%.1f '
-                            'current=%.1f delta=%.1f mm'
+                            "Sensor scan jump trigger: sensor[%d] previous=%.1f "
+                            "current=%.1f delta=%.1f mm"
                             % (
                                 sensor_index,
                                 previous_mm,
@@ -876,11 +844,11 @@ class PickActionServer(Node):
                         )
                         stopped = self._stop_scan_motion()
                         stop_detail = self._last_tool_detail(
-                            str(self.get_parameter('scan_stop_action').value)
+                            str(self.get_parameter("scan_stop_action").value)
                         )
                         self._write_scan_debug_log(
-                            'scan_trigger',
-                            trigger='jump',
+                            "scan_trigger",
+                            trigger="jump",
                             sensor_index=sensor_index,
                             previous_mm=previous_mm,
                             distance_mm=current_mm,
@@ -892,27 +860,23 @@ class PickActionServer(Node):
                             stop_detail=stop_detail,
                         )
                         scan_result = {
-                            'alignment_mode': 'sensor_scan_no_alignment',
-                            'scan_trigger': 'jump',
-                            'scan_sensor_index': sensor_index,
-                            'scan_target_position_m': round(
-                                scan_target_position_m, 4
-                            ),
-                            'scan_previous_mm': round(previous_mm, 3),
-                            'scan_current_mm': round(current_mm, 3),
-                            'scan_delta_mm': round(delta_mm, 3),
-                            'scan_jump_threshold_mm': round(
-                                jump_threshold_mm, 3
-                            ),
-                            'scan_elapsed_s': round(scan_elapsed_s, 3),
-                            'scan_sample_count': sample_count,
-                            'scan_stop_success': stopped,
-                            'scan_stop_detail': stop_detail,
+                            "alignment_mode": "sensor_scan_no_alignment",
+                            "scan_trigger": "jump",
+                            "scan_sensor_index": sensor_index,
+                            "scan_target_position_m": round(scan_target_position_m, 4),
+                            "scan_previous_mm": round(previous_mm, 3),
+                            "scan_current_mm": round(current_mm, 3),
+                            "scan_delta_mm": round(delta_mm, 3),
+                            "scan_jump_threshold_mm": round(jump_threshold_mm, 3),
+                            "scan_elapsed_s": round(scan_elapsed_s, 3),
+                            "scan_sample_count": sample_count,
+                            "scan_stop_success": stopped,
+                            "scan_stop_detail": stop_detail,
                         }
                         return scan_result
 
                 self._write_scan_debug_log(
-                    'scan_sample',
+                    "scan_sample",
                     sensor_index=sensor_index,
                     sample_count=sample_count,
                     distance_mm=current_mm,
@@ -926,12 +890,11 @@ class PickActionServer(Node):
                 time.sleep(sample_period_s)
 
             self.get_logger().error(
-                'Sensor scan timed out after %.2f s without distance <= %.1f mm '
-                'for %.3f s'
-                % (timeout_s, present_threshold_mm, present_duration_s)
+                "Sensor scan timed out after %.2f s without distance <= %.1f mm "
+                "for %.3f s" % (timeout_s, present_threshold_mm, present_duration_s)
             )
             self._write_scan_debug_log(
-                'scan_timeout',
+                "scan_timeout",
                 timeout_s=timeout_s,
                 present_threshold_mm=present_threshold_mm,
                 present_duration_s=present_duration_s,
@@ -942,23 +905,22 @@ class PickActionServer(Node):
             if not stopped:
                 stopped = self._stop_scan_motion()
                 stop_detail = self._last_tool_detail(
-                    str(self.get_parameter('scan_stop_action').value)
+                    str(self.get_parameter("scan_stop_action").value)
                 )
                 if scan_result is not None:
-                    scan_result['scan_stop_success'] = stopped
-                    scan_result['scan_stop_detail'] = stop_detail
-                    scan_result['scan_final_stop_success'] = stopped
-                    scan_result['scan_final_stop_detail'] = stop_detail
+                    scan_result["scan_stop_success"] = stopped
+                    scan_result["scan_stop_detail"] = stop_detail
+                    scan_result["scan_final_stop_success"] = stopped
+                    scan_result["scan_final_stop_detail"] = stop_detail
                 self._write_scan_debug_log(
-                    'scan_final_stop',
+                    "scan_final_stop",
                     stop_success=stopped,
                     stop_detail=stop_detail,
                 )
             self._active_scan_debug_id = None
 
-    def _run_timed_publish(self, speed: float, duration_s: float,
-                           goal_handle) -> None:
-        rate_hz = float(self.get_parameter('publish_rate_hz').value)
+    def _run_timed_publish(self, speed: float, duration_s: float, goal_handle) -> None:
+        rate_hz = float(self.get_parameter("publish_rate_hz").value)
         period = 1.0 / rate_hz
         msg = Float32MultiArray()
         msg.data = [speed, 0.0, 0.0]
@@ -966,7 +928,7 @@ class PickActionServer(Node):
         start = time.monotonic()
         while time.monotonic() - start < duration_s:
             if goal_handle.is_cancel_requested:
-                self.get_logger().info('Cancelled during timed movement')
+                self.get_logger().info("Cancelled during timed movement")
                 break
             self._chassis_pub.publish(msg)
             time.sleep(period)
@@ -975,9 +937,9 @@ class PickActionServer(Node):
         self._chassis_pub.publish(msg)
 
     def _publish_height(self, heights: list[float]) -> None:
-        frame_count = int(self.get_parameter('height_command_frames').value)
+        frame_count = int(self.get_parameter("height_command_frames").value)
         frame_count = max(1, frame_count)
-        period = 1.0 / max(1.0, float(self.get_parameter('publish_rate_hz').value))
+        period = 1.0 / max(1.0, float(self.get_parameter("publish_rate_hz").value))
 
         msg = Float32MultiArray()
         msg.data = [float(h) for h in heights[:4]]
@@ -985,15 +947,15 @@ class PickActionServer(Node):
             self._lift_pub.publish(msg)
             time.sleep(period)
 
-    def _publish_status(self, state: str, target_id: int,
-                        x_m: float, y_m: float,
-                        extra: dict | None = None) -> None:
+    def _publish_status(
+        self, state: str, target_id: int, x_m: float, y_m: float, extra: dict | None = None
+    ) -> None:
         msg = String()
         payload = {
-            'state': state,
-            'target_id': target_id,
-            'target_x_m': round(x_m, 4),
-            'target_y_m': round(y_m, 4),
+            "state": state,
+            "target_id": target_id,
+            "target_x_m": round(x_m, 4),
+            "target_y_m": round(y_m, 4),
         }
         if extra:
             payload.update(extra)
@@ -1004,96 +966,97 @@ class PickActionServer(Node):
         if alignment is None:
             return {}
         return {
-            'alignment_mode': 'odin_sensor_projection',
-            'sensor_3_mm': round(float(alignment['sensor_3_mm']), 3),
-            'sensor_5_mm': round(float(alignment['sensor_5_mm']), 3),
-            'odin_x_m': round(float(alignment['odin_x_m']), 4),
-            'odin_y_m': round(float(alignment['odin_y_m']), 4),
-            'odin_yaw_rad': round(float(alignment['odin_yaw_rad']), 6),
-            'gripper_x_m': round(float(alignment['gripper_x_m']), 4),
-            'gripper_y_m': round(float(alignment['gripper_y_m']), 4),
-            'gripper_yaw_rad': round(float(alignment['gripper_yaw_rad']), 6),
-            'projection_x_m': round(float(alignment['projection_x_m']), 4),
-            'projection_y_m': round(float(alignment['projection_y_m']), 4),
-            'along_offset_m': round(float(alignment['along_offset_m']), 4),
-            'raw_along_offset_m': round(float(alignment['raw_along_offset_m']), 4),
-            'direct': round(float(alignment['direct']), 1),
-            'lateral_error_m': round(float(alignment['lateral_error_m']), 4),
+            "alignment_mode": "odin_sensor_projection",
+            "sensor_3_mm": round(float(alignment["sensor_3_mm"]), 3),
+            "sensor_5_mm": round(float(alignment["sensor_5_mm"]), 3),
+            "odin_x_m": round(float(alignment["odin_x_m"]), 4),
+            "odin_y_m": round(float(alignment["odin_y_m"]), 4),
+            "odin_yaw_rad": round(float(alignment["odin_yaw_rad"]), 6),
+            "gripper_x_m": round(float(alignment["gripper_x_m"]), 4),
+            "gripper_y_m": round(float(alignment["gripper_y_m"]), 4),
+            "gripper_yaw_rad": round(float(alignment["gripper_yaw_rad"]), 6),
+            "projection_x_m": round(float(alignment["projection_x_m"]), 4),
+            "projection_y_m": round(float(alignment["projection_y_m"]), 4),
+            "along_offset_m": round(float(alignment["along_offset_m"]), 4),
+            "raw_along_offset_m": round(float(alignment["raw_along_offset_m"]), 4),
+            "direct": round(float(alignment["direct"]), 1),
+            "lateral_error_m": round(float(alignment["lateral_error_m"]), 4),
         }
 
-    def _save_alignment_data(self, alignment: dict, corrected: dict,
-                             sensor_3_mm: float, sensor_5_mm: float) -> None:
+    def _save_alignment_data(
+        self, alignment: dict, corrected: dict, sensor_3_mm: float, sensor_5_mm: float
+    ) -> None:
         """Save correction results, projection distance, and target coordinates to file."""
-        save_path = str(self.get_parameter('alignment_data_path').value)
+        save_path = str(self.get_parameter("alignment_data_path").value)
         data = {
-            'timestamp_s': self._now_sec(),
-            'correction_result': {
-                'sensor_3_mm': round(float(sensor_3_mm), 3),
-                'sensor_5_mm': round(float(sensor_5_mm), 3),
-                'input_field_x_m': round(float(corrected['input_field_x_m']), 6),
-                'input_field_y_m': round(float(corrected['input_field_y_m']), 6),
-                'input_field_yaw_rad': round(float(corrected['input_field_yaw_rad']), 6),
-                'corrected_robot_x_m': round(float(corrected['corrected_robot_x_m']), 6),
-                'corrected_robot_y_m': round(float(corrected['corrected_robot_y_m']), 6),
-                'corrected_robot_yaw_rad': round(float(corrected['corrected_robot_yaw_rad']), 6),
-                'corrected_gripper_x_m': round(float(corrected['corrected_gripper_x_m']), 6),
-                'corrected_gripper_y_m': round(float(corrected['corrected_gripper_y_m']), 6),
-                'corrected_gripper_yaw_rad': round(float(corrected['corrected_gripper_yaw_rad']), 6),
-                'target_x_m': round(float(corrected['target_x_m']), 6),
-                'target_y_m': round(float(corrected['target_y_m']), 6),
-                'target_projection_x_m': round(float(corrected['target_projection_x_m']), 6),
-                'target_projection_y_m': round(float(corrected['target_projection_y_m']), 6),
-                'raw_gripper_forward_move_m': round(float(corrected['raw_gripper_forward_move_m']), 6),
-                'gripper_forward_move_m': round(float(corrected['gripper_forward_move_m']), 6),
-                'direct': round(float(corrected['direct']), 1),
-                'gripper_lateral_error_m': round(float(corrected['gripper_lateral_error_m']), 6),
-                'robot_delta_x_m': round(float(corrected['robot_delta_x_m']), 6),
-                'robot_delta_y_m': round(float(corrected['robot_delta_y_m']), 6),
+            "timestamp_s": self._now_sec(),
+            "correction_result": {
+                "sensor_3_mm": round(float(sensor_3_mm), 3),
+                "sensor_5_mm": round(float(sensor_5_mm), 3),
+                "input_field_x_m": round(float(corrected["input_field_x_m"]), 6),
+                "input_field_y_m": round(float(corrected["input_field_y_m"]), 6),
+                "input_field_yaw_rad": round(float(corrected["input_field_yaw_rad"]), 6),
+                "corrected_robot_x_m": round(float(corrected["corrected_robot_x_m"]), 6),
+                "corrected_robot_y_m": round(float(corrected["corrected_robot_y_m"]), 6),
+                "corrected_robot_yaw_rad": round(float(corrected["corrected_robot_yaw_rad"]), 6),
+                "corrected_gripper_x_m": round(float(corrected["corrected_gripper_x_m"]), 6),
+                "corrected_gripper_y_m": round(float(corrected["corrected_gripper_y_m"]), 6),
+                "corrected_gripper_yaw_rad": round(
+                    float(corrected["corrected_gripper_yaw_rad"]), 6
+                ),
+                "target_x_m": round(float(corrected["target_x_m"]), 6),
+                "target_y_m": round(float(corrected["target_y_m"]), 6),
+                "target_projection_x_m": round(float(corrected["target_projection_x_m"]), 6),
+                "target_projection_y_m": round(float(corrected["target_projection_y_m"]), 6),
+                "raw_gripper_forward_move_m": round(
+                    float(corrected["raw_gripper_forward_move_m"]), 6
+                ),
+                "gripper_forward_move_m": round(float(corrected["gripper_forward_move_m"]), 6),
+                "direct": round(float(corrected["direct"]), 1),
+                "gripper_lateral_error_m": round(float(corrected["gripper_lateral_error_m"]), 6),
+                "robot_delta_x_m": round(float(corrected["robot_delta_x_m"]), 6),
+                "robot_delta_y_m": round(float(corrected["robot_delta_y_m"]), 6),
             },
-            'projection_distance': {
-                'along_offset_m': round(float(alignment['along_offset_m']), 6),
-                'lateral_error_m': round(float(alignment['lateral_error_m']), 6),
-                'projection_x_m': round(float(alignment['projection_x_m']), 6),
-                'projection_y_m': round(float(alignment['projection_y_m']), 6),
-                'gripper_x_m': round(float(alignment['gripper_x_m']), 6),
-                'gripper_y_m': round(float(alignment['gripper_y_m']), 6),
-                'gripper_yaw_rad': round(float(alignment['gripper_yaw_rad']), 6),
+            "projection_distance": {
+                "along_offset_m": round(float(alignment["along_offset_m"]), 6),
+                "lateral_error_m": round(float(alignment["lateral_error_m"]), 6),
+                "projection_x_m": round(float(alignment["projection_x_m"]), 6),
+                "projection_y_m": round(float(alignment["projection_y_m"]), 6),
+                "gripper_x_m": round(float(alignment["gripper_x_m"]), 6),
+                "gripper_y_m": round(float(alignment["gripper_y_m"]), 6),
+                "gripper_yaw_rad": round(float(alignment["gripper_yaw_rad"]), 6),
             },
-            'target_coordinates': {
-                'target_x_m': round(float(alignment['target_x_m']), 6),
-                'target_y_m': round(float(alignment['target_y_m']), 6),
+            "target_coordinates": {
+                "target_x_m": round(float(alignment["target_x_m"]), 6),
+                "target_y_m": round(float(alignment["target_y_m"]), 6),
             },
         }
         try:
-            os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
-            with open(save_path, 'w', encoding='utf-8') as f:
+            os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+            with open(save_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            self.get_logger().info(
-                'Alignment data saved to %s' % save_path
-            )
+            self.get_logger().info("Alignment data saved to %s" % save_path)
         except (OSError, TypeError) as exc:
-            self.get_logger().error(
-                'Failed to save alignment data to %s: %s' % (save_path, exc)
-            )
+            self.get_logger().error("Failed to save alignment data to %s: %s" % (save_path, exc))
 
     def _execute_callback(self, goal_handle) -> PickSequence.Result:
         with self._active_goal_condition:
             if self._active_goal_running:
                 self.get_logger().warn(
-                    'Joining active pick sequence instead of starting another one'
+                    "Joining active pick sequence instead of starting another one"
                 )
                 while self._active_goal_running:
                     if goal_handle.is_cancel_requested:
                         goal_handle.abort()
                         return PickSequence.Result(
                             success=False,
-                            message='cancelled while waiting for active pick',
+                            message="cancelled while waiting for active pick",
                         )
                     self._active_goal_condition.wait(timeout=0.1)
 
                 success, message = self._last_active_goal_result or (
                     False,
-                    'active pick sequence ended without result',
+                    "active pick sequence ended without result",
                 )
                 if success:
                     goal_handle.succeed()
@@ -1101,7 +1064,7 @@ class PickActionServer(Node):
                     goal_handle.abort()
                 return PickSequence.Result(
                     success=success,
-                    message='Joined active pick sequence: %s' % message,
+                    message="Joined active pick sequence: %s" % message,
                 )
 
             self._active_goal_running = True
@@ -1116,7 +1079,7 @@ class PickActionServer(Node):
                 if result is None:
                     self._last_active_goal_result = (
                         False,
-                        'active pick sequence ended without result',
+                        "active pick sequence ended without result",
                     )
                 else:
                     self._last_active_goal_result = (
@@ -1142,131 +1105,116 @@ class PickActionServer(Node):
             )
 
         # ---- VALIDATE ----
-        feedback('VALIDATING')
+        feedback("VALIDATING")
         if use_no_alignment or use_sensor_scan:
             tid = 0
             x_m = 0.0
             y_m = 0.0
-            mode_name = (
-                'sensor_scan_no_alignment'
-                if use_sensor_scan else 'no_alignment'
-            )
+            mode_name = "sensor_scan_no_alignment" if use_sensor_scan else "no_alignment"
             self._publish_status(
-                'VALIDATING',
+                "VALIDATING",
                 tid,
                 x_m,
                 y_m,
-                {'alignment_mode': mode_name},
+                {"alignment_mode": mode_name},
             )
             if use_sensor_scan:
                 self.get_logger().info(
-                    'Sensor-scan no-alignment mode: skipping recognition and '
-                    'Odin correction; sensor scan will run before FORWARD'
+                    "Sensor-scan no-alignment mode: skipping recognition and "
+                    "Odin correction; sensor scan will run before FORWARD"
                 )
             else:
                 self.get_logger().info(
-                    'No-alignment mode: skipping recognition, Odin/sensor '
-                    'correction, and ALIGN_X prepare'
+                    "No-alignment mode: skipping recognition, Odin/sensor "
+                    "correction, and ALIGN_X prepare"
                 )
         elif use_projection:
-            projection_alignment = self._wait_for_odin_sensor_alignment(
-                timeout_s=10.0
-            )
+            projection_alignment = self._wait_for_odin_sensor_alignment(timeout_s=10.0)
             if projection_alignment is None:
-                self.get_logger().error(
-                    'Odin/sensor projection data not ready'
-                )
+                self.get_logger().error("Odin/sensor projection data not ready")
                 goal_handle.abort()
                 return PickSequence.Result(
                     success=False,
-                    message='Odin pose or sensor 3/5 data not ready',
+                    message="Odin pose or sensor 3/5 data not ready",
                 )
-            tid = int(projection_alignment['target_id'])
-            x_m = float(projection_alignment['target_x_m'])
-            y_m = float(projection_alignment['target_y_m'])
+            tid = int(projection_alignment["target_id"])
+            x_m = float(projection_alignment["target_x_m"])
+            y_m = float(projection_alignment["target_y_m"])
             self._publish_status(
-                'VALIDATING',
+                "VALIDATING",
                 tid,
                 x_m,
                 y_m,
                 self._projection_status_extra(projection_alignment),
             )
             self.get_logger().info(
-                'Projection target: target=(%.4f, %.4f) '
-                'gripper=(%.4f, %.4f, yaw=%.4f) move=%.4f '
-                'raw=%.4f direct=%.1f lateral=%.4f'
+                "Projection target: target=(%.4f, %.4f) "
+                "gripper=(%.4f, %.4f, yaw=%.4f) move=%.4f "
+                "raw=%.4f direct=%.1f lateral=%.4f"
                 % (
                     x_m,
                     y_m,
-                    projection_alignment['gripper_x_m'],
-                    projection_alignment['gripper_y_m'],
-                    projection_alignment['gripper_yaw_rad'],
-                    projection_alignment['along_offset_m'],
-                    projection_alignment['raw_along_offset_m'],
-                    projection_alignment['direct'],
-                    projection_alignment['lateral_error_m'],
+                    projection_alignment["gripper_x_m"],
+                    projection_alignment["gripper_y_m"],
+                    projection_alignment["gripper_yaw_rad"],
+                    projection_alignment["along_offset_m"],
+                    projection_alignment["raw_along_offset_m"],
+                    projection_alignment["direct"],
+                    projection_alignment["lateral_error_m"],
                 )
             )
             self._save_alignment_data(
                 projection_alignment,
-                projection_alignment['corrected'],
-                float(projection_alignment['sensor_3_mm']),
-                float(projection_alignment['sensor_5_mm']),
+                projection_alignment["corrected"],
+                float(projection_alignment["sensor_3_mm"]),
+                float(projection_alignment["sensor_5_mm"]),
             )
         else:
-            feedback('PRE_RECOGNITION_FORWARD')
-            sign_y = float(self.get_parameter('direction_sign_y').value)
-            fwd_speed = sign_y * float(
-                self.get_parameter('forward_speed_mps').value
-            )
-            fwd_duration = float(self.get_parameter('forward_duration_s').value)
+            feedback("PRE_RECOGNITION_FORWARD")
+            sign_y = float(self.get_parameter("direction_sign_y").value)
+            fwd_speed = sign_y * float(self.get_parameter("forward_speed_mps").value)
+            fwd_duration = float(self.get_parameter("forward_duration_s").value)
             self._publish_status(
-                'PRE_RECOGNITION_FORWARD',
+                "PRE_RECOGNITION_FORWARD",
                 0,
                 0.0,
                 0.0,
-                {'alignment_mode': 'lidar_recognition'},
+                {"alignment_mode": "lidar_recognition"},
             )
             self.get_logger().info(
-                'Pre-recognition forward: %.2f m/s for %.1f s'
-                % (fwd_speed, fwd_duration)
+                "Pre-recognition forward: %.2f m/s for %.1f s" % (fwd_speed, fwd_duration)
             )
             self._run_timed_publish(fwd_speed, fwd_duration, goal_handle)
             if goal_handle.is_cancel_requested:
                 goal_handle.abort()
-                return PickSequence.Result(success=False, message='cancelled')
+                return PickSequence.Result(success=False, message="cancelled")
 
             self._clear_recognition()
             if not self._wait_for_recognition(expected_count, timeout_s=10.0):
-                self.get_logger().error(
-                    'Recognition failed (expected %d targets)' % expected_count
-                )
+                self.get_logger().error("Recognition failed (expected %d targets)" % expected_count)
                 goal_handle.abort()
                 return PickSequence.Result(
                     success=False,
-                    message='Recognition did not reach %d targets within timeout'
-                            % expected_count,
+                    message="Recognition did not reach %d targets within timeout" % expected_count,
                 )
 
             tid, x_m, y_m = self._pick_best_target()
             if tid < 0:
                 goal_handle.abort()
-                return PickSequence.Result(success=False, message='No targets found')
+                return PickSequence.Result(success=False, message="No targets found")
 
-            self._publish_status('VALIDATING', tid, x_m, y_m)
-            self.get_logger().info(
-                'Selected target %d: x=%.4f y=%.4f' % (tid, x_m, y_m)
-            )
+            self._publish_status("VALIDATING", tid, x_m, y_m)
+            self.get_logger().info("Selected target %d: x=%.4f y=%.4f" % (tid, x_m, y_m))
 
         if use_sensor_scan:
             # ---- SENSOR_SCAN ----
-            feedback('SENSOR_SCAN')
+            feedback("SENSOR_SCAN")
             self._publish_status(
-                'SENSOR_SCAN',
+                "SENSOR_SCAN",
                 tid,
                 x_m,
                 y_m,
-                {'alignment_mode': 'sensor_scan_no_alignment'},
+                {"alignment_mode": "sensor_scan_no_alignment"},
             )
             sensor_scan_result = self._run_sensor_scan(goal_handle)
             if sensor_scan_result is None:
@@ -1274,28 +1222,30 @@ class PickActionServer(Node):
                 return PickSequence.Result(
                     success=False,
                     message=(
-                        'sensor scan failed or timed out; check '
-                        'scan_debug_log_path=%s for sensor samples and tool '
-                        'stop result'
-                    ) % self.get_parameter('scan_debug_log_path').value,
+                        "sensor scan failed or timed out; check "
+                        "scan_debug_log_path=%s for sensor samples and tool "
+                        "stop result"
+                    )
+                    % self.get_parameter("scan_debug_log_path").value,
                 )
-            if not bool(sensor_scan_result.get('scan_stop_success', False)):
+            if not bool(sensor_scan_result.get("scan_stop_success", False)):
                 goal_handle.abort()
                 return PickSequence.Result(
                     success=False,
                     message=(
-                        'sensor scan detected target but failed to stop scan '
-                        'motion; stop_action=%s stop_args=%s timeout_ms=%.1f; '
-                        'detail=%s'
-                    ) % (
-                        self.get_parameter('scan_stop_action').value,
-                        list(self.get_parameter('scan_stop_args').value),
-                        float(self.get_parameter('scan_stop_timeout_ms').value),
-                        sensor_scan_result.get('scan_stop_detail', ''),
+                        "sensor scan detected target but failed to stop scan "
+                        "motion; stop_action=%s stop_args=%s timeout_ms=%.1f; "
+                        "detail=%s"
+                    )
+                    % (
+                        self.get_parameter("scan_stop_action").value,
+                        list(self.get_parameter("scan_stop_args").value),
+                        float(self.get_parameter("scan_stop_timeout_ms").value),
+                        sensor_scan_result.get("scan_stop_detail", ""),
                     ),
                 )
             self._publish_status(
-                'SENSOR_SCAN',
+                "SENSOR_SCAN",
                 tid,
                 x_m,
                 y_m,
@@ -1304,73 +1254,59 @@ class PickActionServer(Node):
 
         if not use_no_alignment and not use_sensor_scan:
             # ---- ALIGN_X ----
-            feedback('ALIGN_X')
+            feedback("ALIGN_X")
             if use_projection:
-                error_x = float(projection_alignment['along_offset_m'])
+                error_x = float(projection_alignment["along_offset_m"])
             else:
                 error_x = 0.0 - x_m
-            db_x = float(self.get_parameter('deadband_x_m').value)
+            db_x = float(self.get_parameter("deadband_x_m").value)
             if abs(error_x) > db_x:
                 if use_projection:
-                    length = (
-                        float(self.get_parameter('prepare_base_length_m').value)
-                        + error_x
-                    )
+                    length = float(self.get_parameter("prepare_base_length_m").value) + error_x
                 else:
-                    sign = float(self.get_parameter('direction_sign_x').value)
-                    length = (
-                        sign * error_x
-                        + float(self.get_parameter('prepare_base_length_m').value)
+                    sign = float(self.get_parameter("direction_sign_x").value)
+                    length = sign * error_x + float(
+                        self.get_parameter("prepare_base_length_m").value
                     )
-                min_length = float(self.get_parameter('prepare_min_length_m').value)
-                max_length = float(self.get_parameter('prepare_max_length_m').value)
-                self.get_logger().info(
-                    'Align X: error=%.4f length=%.4f' % (error_x, length)
-                )
+                min_length = float(self.get_parameter("prepare_min_length_m").value)
+                max_length = float(self.get_parameter("prepare_max_length_m").value)
+                self.get_logger().info("Align X: error=%.4f length=%.4f" % (error_x, length))
                 if length < min_length or length > max_length:
                     self.get_logger().error(
-                        'prepare length %.4f out of range [%.4f, %.4f]'
+                        "prepare length %.4f out of range [%.4f, %.4f]"
                         % (length, min_length, max_length)
                     )
                     goal_handle.abort()
                     return PickSequence.Result(
                         success=False,
-                        message='prepare length out of range',
+                        message="prepare length out of range",
                     )
-                prepare_timeout = float(
-                    self.get_parameter('prepare_timeout_ms').value
-                )
+                prepare_timeout = float(self.get_parameter("prepare_timeout_ms").value)
                 prepare_result = self._call_tool_action(
-                    'prepare',
+                    "prepare",
                     [length],
                     prepare_timeout,
                 )
                 if not prepare_result:
-                    prepare_detail = self._last_tool_detail('prepare')
+                    prepare_detail = self._last_tool_detail("prepare")
                     goal_handle.abort()
                     return PickSequence.Result(
                         success=False,
-                        message=(
-                            'prepare failed (ALIGN_X): %s; tool_debug_log=%s'
-                        ) % (
+                        message=("prepare failed (ALIGN_X): %s; tool_debug_log=%s")
+                        % (
                             prepare_detail,
-                            self.get_parameter('tool_debug_log_path').value,
+                            self.get_parameter("tool_debug_log_path").value,
                         ),
                     )
             else:
-                self.get_logger().info(
-                    'X already in deadband (error=%.4f)' % error_x
-                )
+                self.get_logger().info("X already in deadband (error=%.4f)" % error_x)
 
             self._publish_status(
-                'ALIGN_X',
+                "ALIGN_X",
                 tid,
                 x_m,
                 y_m,
-                (
-                    self._projection_status_extra(projection_alignment)
-                    if use_projection else None
-                ),
+                (self._projection_status_extra(projection_alignment) if use_projection else None),
             )
 
             if use_projection:
@@ -1378,66 +1314,61 @@ class PickActionServer(Node):
                 refreshed = self._compute_odin_sensor_alignment()
                 if refreshed is not None:
                     projection_alignment = refreshed
-                    tid = int(projection_alignment['target_id'])
-                    x_m = float(projection_alignment['target_x_m'])
-                    y_m = float(projection_alignment['target_y_m'])
+                    tid = int(projection_alignment["target_id"])
+                    x_m = float(projection_alignment["target_x_m"])
+                    y_m = float(projection_alignment["target_y_m"])
                     self._save_alignment_data(
                         projection_alignment,
-                        projection_alignment['corrected'],
-                        float(projection_alignment['sensor_3_mm']),
-                        float(projection_alignment['sensor_5_mm']),
+                        projection_alignment["corrected"],
+                        float(projection_alignment["sensor_3_mm"]),
+                        float(projection_alignment["sensor_5_mm"]),
                     )
             else:
                 # Re-sample recognition for updated Y after alignment
                 time.sleep(0.3)
                 with self._recognition_lock:
                     data = self._latest_recognition
-                if data is not None and data.get('status') == 'recognized':
-                    targets = data.get('targets', [])
+                if data is not None and data.get("status") == "recognized":
+                    targets = data.get("targets", [])
                     if targets:
                         best = min(
                             targets,
-                            key=lambda t: abs(float(t.get('x_m', 0.0))),
+                            key=lambda t: abs(float(t.get("x_m", 0.0))),
                         )
-                        y_m = float(best['y_m'])
-                        x_m = float(best['x_m'])
-                        tid = int(best.get('id', tid))
+                        y_m = float(best["y_m"])
+                        x_m = float(best["x_m"])
+                        tid = int(best.get("id", tid))
 
         # ---- FORWARD ----
-        feedback('FORWARD')
-        sign_y = float(self.get_parameter('direction_sign_y').value)
-        fwd_speed = sign_y * float(self.get_parameter('forward_speed_mps').value)
-        fwd_duration = float(self.get_parameter('forward_duration_s').value)
-        self.get_logger().info(
-            'Forward: %.2f m/s for %.1f s' % (fwd_speed, fwd_duration)
-        )
-        self._publish_status('FORWARD', tid, x_m, y_m)
+        feedback("FORWARD")
+        sign_y = float(self.get_parameter("direction_sign_y").value)
+        fwd_speed = sign_y * float(self.get_parameter("forward_speed_mps").value)
+        fwd_duration = float(self.get_parameter("forward_duration_s").value)
+        self.get_logger().info("Forward: %.2f m/s for %.1f s" % (fwd_speed, fwd_duration))
+        self._publish_status("FORWARD", tid, x_m, y_m)
         self._run_timed_publish(fwd_speed, fwd_duration, goal_handle)
 
         if goal_handle.is_cancel_requested:
             goal_handle.abort()
-            return PickSequence.Result(success=False, message='cancelled')
+            return PickSequence.Result(success=False, message="cancelled")
 
         # ---- GRASP ----
-        feedback('GRASP')
-        self.get_logger().info('Grasping...')
-        self._publish_status('GRASP', tid, x_m, y_m)
-        grasp_timeout = float(self.get_parameter('grasp_timeout_ms').value)
+        feedback("GRASP")
+        self.get_logger().info("Grasping...")
+        self._publish_status("GRASP", tid, x_m, y_m)
+        grasp_timeout = float(self.get_parameter("grasp_timeout_ms").value)
         retry_grasp = (
             use_sensor_scan
             and sensor_scan_result is not None
-            and bool(sensor_scan_result.get('scan_stop_success', False))
+            and bool(sensor_scan_result.get("scan_stop_success", False))
         )
         if retry_grasp:
-            delay_s = float(
-                self.get_parameter('scan_stop_to_grasp_delay_s').value
-            )
+            delay_s = float(self.get_parameter("scan_stop_to_grasp_delay_s").value)
             self.get_logger().info(
-                'Sensor scan stopped successfully; delaying %.3f s before grasp'
-                % delay_s
+                "Sensor scan stopped successfully; delaying %.3f s before grasp" % delay_s
             )
             self._write_scan_debug_log(
-                'scan_stop_to_grasp_delay',
+                "scan_stop_to_grasp_delay",
                 delay_s=delay_s,
             )
             time.sleep(delay_s)
@@ -1447,62 +1378,59 @@ class PickActionServer(Node):
             retry_on_timeout=retry_grasp,
         )
         if not grasp_result:
-            grasp_detail = self._last_tool_detail('grasp')
+            grasp_detail = self._last_tool_detail("grasp")
             goal_handle.abort()
             return PickSequence.Result(
                 success=False,
-                message='grasp failed: %s; tool_debug_log=%s' % (
+                message="grasp failed: %s; tool_debug_log=%s"
+                % (
                     grasp_detail,
-                    self.get_parameter('tool_debug_log_path').value,
+                    self.get_parameter("tool_debug_log_path").value,
                 ),
             )
 
         if goal_handle.is_cancel_requested:
             goal_handle.abort()
-            return PickSequence.Result(success=False, message='cancelled')
+            return PickSequence.Result(success=False, message="cancelled")
 
         # ---- LIFT ----
-        feedback('LIFT')
-        heights = [float(h) for h in self.get_parameter('lift_height_mm').value]
-        self.get_logger().info('Lifting: %s' % heights)
-        self._publish_status('LIFT', tid, x_m, y_m)
+        feedback("LIFT")
+        heights = [float(h) for h in self.get_parameter("lift_height_mm").value]
+        self.get_logger().info("Lifting: %s" % heights)
+        self._publish_status("LIFT", tid, x_m, y_m)
         self._publish_height(heights)
         time.sleep(0.2)
 
         # ---- RETREAT ----
-        feedback('RETREAT')
-        retreat_speed = -sign_y * float(self.get_parameter('retreat_speed_mps').value)
-        retreat_duration = float(self.get_parameter('retreat_duration_s').value)
-        self.get_logger().info(
-            'Retreat: %.2f m/s for %.1f s' % (retreat_speed, retreat_duration)
-        )
-        self._publish_status('RETREAT', tid, x_m, y_m)
+        feedback("RETREAT")
+        retreat_speed = -sign_y * float(self.get_parameter("retreat_speed_mps").value)
+        retreat_duration = float(self.get_parameter("retreat_duration_s").value)
+        self.get_logger().info("Retreat: %.2f m/s for %.1f s" % (retreat_speed, retreat_duration))
+        self._publish_status("RETREAT", tid, x_m, y_m)
         self._run_timed_publish(retreat_speed, retreat_duration, goal_handle)
 
         if goal_handle.is_cancel_requested:
             goal_handle.abort()
-            return PickSequence.Result(success=False, message='cancelled')
+            return PickSequence.Result(success=False, message="cancelled")
 
         # ---- LOWER ----
-        feedback('LOWER')
-        lower_heights = [float(h) for h in self.get_parameter('lower_height_mm').value]
-        self.get_logger().info('Lowering: %s' % lower_heights)
-        self._publish_status('LOWER', tid, x_m, y_m)
+        feedback("LOWER")
+        lower_heights = [float(h) for h in self.get_parameter("lower_height_mm").value]
+        self.get_logger().info("Lowering: %s" % lower_heights)
+        self._publish_status("LOWER", tid, x_m, y_m)
         self._publish_height(lower_heights)
         time.sleep(0.2)
 
         # ---- DONE ----
-        feedback('DONE')
+        feedback("DONE")
         elapsed = time.monotonic() - start_time
-        self._publish_status('DONE', tid, x_m, y_m)
-        self.get_logger().info(
-            'Pick sequence complete in %.1f s' % elapsed
-        )
+        self._publish_status("DONE", tid, x_m, y_m)
+        self.get_logger().info("Pick sequence complete in %.1f s" % elapsed)
 
         goal_handle.succeed()
         return PickSequence.Result(
             success=True,
-            message='Pick sequence complete in %.1f s' % elapsed,
+            message="Pick sequence complete in %.1f s" % elapsed,
         )
 
 
@@ -1522,5 +1450,5 @@ def main(args=None) -> None:
             rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
