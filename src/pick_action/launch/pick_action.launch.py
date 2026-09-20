@@ -17,70 +17,68 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    pick_share = get_package_share_directory('pick_action')
-    driver_share = get_package_share_directory('ldlidar_stl_ros2')
+    pick_share = get_package_share_directory("pick_action")
+    driver_share = get_package_share_directory("ldlidar_stl_ros2")
 
-    port_name = LaunchConfiguration('port_name')
-    use_synthetic = LaunchConfiguration('use_synthetic')
-    pick_config = LaunchConfiguration('pick_config')
+    port_name = LaunchConfiguration("port_name")
+    use_synthetic = LaunchConfiguration("use_synthetic")
+    pick_config = LaunchConfiguration("pick_config")
 
-    default_pick_config = os.path.join(pick_share, 'config', 'pick_action.yaml')
+    default_pick_config = os.path.join(pick_share, "config", "pick_action.yaml")
 
-    return LaunchDescription([
-        DeclareLaunchArgument(
-            'port_name',
-            default_value='/dev/ttyUSB0',
-            description='STL-27L serial device',
-        ),
-        DeclareLaunchArgument(
-            'use_synthetic',
-            default_value='false',
-            description='Use synthetic scan (true) or real LiDAR (false)',
-        ),
-        DeclareLaunchArgument(
-            'expected_count',
-            default_value='3',
-            description='Number of expected targets',
-        ),
-        DeclareLaunchArgument(
-            'pick_config',
-            default_value=default_pick_config,
-            description='Pick action server parameter YAML',
-        ),
-
-        # Real LiDAR driver
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(driver_share, 'launch', 'stl27l.launch.py')
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                "port_name",
+                default_value="/dev/ttyUSB0",
+                description="STL-27L serial device",
             ),
-            launch_arguments={'port_name': port_name}.items(),
-            condition=UnlessCondition(use_synthetic),
-        ),
-
-        # Synthetic scan (development fallback)
-        Node(
-            package='pick_action',
-            executable='synthetic_scan_node',
-            name='synthetic_spear_scan',
-            output='screen',
-            condition=IfCondition(use_synthetic),
-        ),
-
-        # Multi-frame recognition (3 targets)
-        Node(
-            package='pick_action',
-            executable='recognition_node',
-            name='spear_recognition',
-            output='screen',
-            parameters=[pick_config],
-        ),
-
-        # Pick action server
-        Node(
-            package='pick_action',
-            executable='pick_action_server_node',
-            name='pick_action_server',
-            output='screen',
-            parameters=[pick_config],
-        ),
-    ])
+            DeclareLaunchArgument(
+                "use_synthetic",
+                default_value="false",
+                description="Use synthetic scan (true) or real LiDAR (false)",
+            ),
+            DeclareLaunchArgument(
+                "expected_count",
+                default_value="3",
+                description="Number of expected targets",
+            ),
+            DeclareLaunchArgument(
+                "pick_config",
+                default_value=default_pick_config,
+                description="Pick action server parameter YAML",
+            ),
+            # Real LiDAR driver
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(driver_share, "launch", "stl27l.launch.py")
+                ),
+                launch_arguments={"port_name": port_name}.items(),
+                condition=UnlessCondition(use_synthetic),
+            ),
+            # Synthetic scan (development fallback)
+            Node(
+                package="pick_action",
+                executable="synthetic_scan_node",
+                name="synthetic_spear_scan",
+                output="screen",
+                condition=IfCondition(use_synthetic),
+            ),
+            # Multi-frame recognition (3 targets)
+            Node(
+                package="pick_action",
+                executable="recognition_node",
+                name="spear_recognition",
+                output="screen",
+                parameters=[pick_config],
+            ),
+            # Pick action server
+            Node(
+                package="pick_action",
+                executable="pick_action_server_node",
+                name="pick_action_server",
+                output="screen",
+                parameters=[pick_config],
+            ),
+        ]
+    )

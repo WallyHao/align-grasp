@@ -1,7 +1,7 @@
 """ROS-independent scan filtering and clustering algorithms."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 from statistics import median
 from typing import Iterable, List, Sequence
 
@@ -106,9 +106,7 @@ def scan_to_points(
             continue
 
         angle_rad = angle_min_rad + index * angle_increment_rad
-        if not angle_in_window(
-            angle_rad, config.angle_min_deg, config.angle_max_deg
-        ):
+        if not angle_in_window(angle_rad, config.angle_min_deg, config.angle_max_deg):
             continue
 
         range_m = calibrate_range(raw_range_m, angle_rad, config)
@@ -118,15 +116,12 @@ def scan_to_points(
         x_m = range_m * math.cos(angle_rad)
         y_m = range_m * math.sin(angle_rad)
         if not (
-            config.x_min_m <= x_m <= config.x_max_m
-            and config.y_min_m <= y_m <= config.y_max_m
+            config.x_min_m <= x_m <= config.x_max_m and config.y_min_m <= y_m <= config.y_max_m
         ):
             continue
 
         intensity = float(intensities[index]) if index < len(intensities) else 0.0
-        points.append(
-            ScanPoint(index, angle_rad, range_m, x_m, y_m, intensity)
-        )
+        points.append(ScanPoint(index, angle_rad, range_m, x_m, y_m, intensity))
 
     return points
 
@@ -184,7 +179,7 @@ def filter_clusters(
 
 def clusters_to_detections(
     clusters: Iterable[Sequence[ScanPoint]],
-    sort_axis: str = 'x',
+    sort_axis: str = "x",
     sort_ascending: bool = True,
 ) -> List[Detection]:
     """Estimate robust cluster centers and assign IDs on a configured axis."""
@@ -194,7 +189,7 @@ def clusters_to_detections(
         y_m = float(median(point.y_m for point in cluster))
         centers.append((x_m, y_m, len(cluster), cluster_width(cluster)))
 
-    axis_index = 0 if sort_axis.lower() == 'x' else 1
+    axis_index = 0 if sort_axis.lower() == "x" else 1
     centers.sort(
         key=lambda center: center[axis_index],
         reverse=not sort_ascending,
@@ -224,7 +219,7 @@ def process_scan(
     sensor_range_max_m: float,
     config: ProcessorConfig,
     intensities: Sequence[float] = (),
-    sort_axis: str = 'x',
+    sort_axis: str = "x",
     sort_ascending: bool = True,
 ) -> tuple[List[ScanPoint], List[Detection]]:
     """Run ROI filtering, adaptive clustering, and center estimation."""

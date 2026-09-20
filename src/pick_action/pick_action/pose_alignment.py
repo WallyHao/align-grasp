@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 YAW_OFFSET_RAD = -1.6144295581
 M_SENSOR_X = -0.3739821743
 M_SENSOR_Y = 0.0124127122
@@ -54,14 +53,10 @@ def correct_pose(
     theta = float(odin_yaw_rad) + YAW_OFFSET_RAD
 
     corrected_x_m = (
-        m * math.cos(theta)
-        - M_SENSOR_X * math.cos(theta)
-        + M_SENSOR_Y * math.sin(theta)
+        m * math.cos(theta) - M_SENSOR_X * math.cos(theta) + M_SENSOR_Y * math.sin(theta)
     )
     corrected_y_m = (
-        n * math.cos(theta)
-        - N_SENSOR_X * math.sin(theta)
-        - N_SENSOR_Y * math.cos(theta)
+        n * math.cos(theta) - N_SENSOR_X * math.sin(theta) - N_SENSOR_Y * math.cos(theta)
     )
     return corrected_x_m, corrected_y_m, float(odin_yaw_rad)
 
@@ -132,25 +127,25 @@ def correct_pose_from_odin(
     )
     directed_move_m = float(direct) * projection.along_offset_m
     return {
-        'input_field_x_m': input_field_x_m,
-        'input_field_y_m': input_field_y_m,
-        'input_field_yaw_rad': float(odin_yaw_rad),
-        'corrected_robot_x_m': corrected_robot_x_m,
-        'corrected_robot_y_m': corrected_robot_y_m,
-        'corrected_robot_yaw_rad': corrected_robot_yaw_rad,
-        'corrected_gripper_x_m': gripper_x_m,
-        'corrected_gripper_y_m': gripper_y_m,
-        'corrected_gripper_yaw_rad': gripper_yaw_rad,
-        'target_x_m': float(target_x_m),
-        'target_y_m': float(target_y_m),
-        'target_projection_x_m': projection.projection_x_m,
-        'target_projection_y_m': projection.projection_y_m,
-        'raw_gripper_forward_move_m': projection.along_offset_m,
-        'gripper_forward_move_m': directed_move_m,
-        'direct': float(direct),
-        'gripper_lateral_error_m': projection.lateral_error_m,
-        'robot_delta_x_m': corrected_robot_x_m - input_field_x_m,
-        'robot_delta_y_m': corrected_robot_y_m - input_field_y_m,
+        "input_field_x_m": input_field_x_m,
+        "input_field_y_m": input_field_y_m,
+        "input_field_yaw_rad": float(odin_yaw_rad),
+        "corrected_robot_x_m": corrected_robot_x_m,
+        "corrected_robot_y_m": corrected_robot_y_m,
+        "corrected_robot_yaw_rad": corrected_robot_yaw_rad,
+        "corrected_gripper_x_m": gripper_x_m,
+        "corrected_gripper_y_m": gripper_y_m,
+        "corrected_gripper_yaw_rad": gripper_yaw_rad,
+        "target_x_m": float(target_x_m),
+        "target_y_m": float(target_y_m),
+        "target_projection_x_m": projection.projection_x_m,
+        "target_projection_y_m": projection.projection_y_m,
+        "raw_gripper_forward_move_m": projection.along_offset_m,
+        "gripper_forward_move_m": directed_move_m,
+        "direct": float(direct),
+        "gripper_lateral_error_m": projection.lateral_error_m,
+        "robot_delta_x_m": corrected_robot_x_m - input_field_x_m,
+        "robot_delta_y_m": corrected_robot_y_m - input_field_y_m,
     }
 
 

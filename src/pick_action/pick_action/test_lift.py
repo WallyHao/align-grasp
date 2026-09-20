@@ -17,8 +17,8 @@ from std_msgs.msg import Float32MultiArray
 
 def main(args=None) -> None:
     rclpy.init(args=args)
-    node = Node('test_lift')
-    pub = node.create_publisher(Float32MultiArray, '/t0x0112_', 10)
+    node = Node("test_lift")
+    pub = node.create_publisher(Float32MultiArray, "/t0x0112_", 10)
     time.sleep(0.1)
 
     heights = [float(a) for a in sys.argv[1:]] if len(sys.argv) > 1 else [70.0] * 4
@@ -27,7 +27,7 @@ def main(args=None) -> None:
 
     msg = Float32MultiArray()
     msg.data = heights
-    print('Publishing to /t0x0112_: %s' % heights)
+    print("Publishing to /t0x0112_: %s" % heights)
     pub.publish(msg)
     time.sleep(0.2)
 
@@ -35,5 +35,5 @@ def main(args=None) -> None:
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
