@@ -1,6 +1,6 @@
 # AlignGrasp
 
-[![CI](https://github.com/WallyHao/AlignGrasp/actions/workflows/ci.yml/badge.svg)](https://github.com/WallyHao/AlignGrasp/actions/workflows/ci.yml)
+[![CI](https://github.com/WallyHao/align-grasp/actions/workflows/ci.yml/badge.svg)](https://github.com/WallyHao/align-grasp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![ROS 2](https://img.shields.io/badge/ROS%202-Jazzy-22314E.svg)](https://docs.ros.org/en/jazzy/)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -62,7 +62,7 @@ The full Chinese parameter reference for every mode is in
 ## Build
 
 ```bash
-git clone https://github.com/WallyHao/AlignGrasp.git
+git clone https://github.com/WallyHao/align-grasp.git
 cd AlignGrasp
 source /opt/ros/jazzy/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
