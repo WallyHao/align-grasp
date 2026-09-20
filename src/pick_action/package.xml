@@ -4,7 +4,7 @@
   <name>pick_action</name>
   <version>0.1.0</version>
   <description>LiDAR-based autonomous pick sequence: recognition, approach, grasp, lift, retreat, lower.</description>
-  <maintainer email="waliwuao@users.noreply.github.com">waliwuao</maintainer>
+  <maintainer email="WallyHao@users.noreply.github.com">WallyHao</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
