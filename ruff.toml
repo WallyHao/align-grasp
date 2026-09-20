@@ -1,0 +1,7 @@
+line-length = 100
+target-version = "py312"
+extend-exclude = ["build", "install", "log", "src/ldlidar_stl_ros2"]
+
+[lint]
+select = ["E", "F", "I", "W", "B"]
+ignore = ["E501"]
